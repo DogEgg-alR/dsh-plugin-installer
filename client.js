@@ -199,6 +199,16 @@ const primaryButtonStyle = { ...buttonStyle, border: '1px solid transparent', ba
 const mutedText = { fontSize: 12, lineHeight: 1.6, color: 'var(--dsw-alias-label-secondary, #6b7280)' }
 
 /**
+ * Horizontal inset of a section header's right-hand button.
+ *
+ * Rows put their buttons inside a card (`padding: 10px 12px` plus a 1px
+ * border), so a button that sits directly in the section header would hang
+ * 14px further right and look out of line with the row buttons under it.
+ * @returns the inset in pixels.
+ */
+const headerInset = 14
+
+/**
  * Spinner plus a line of text.
  * @param props - the line to show.
  * @returns the status row.
@@ -668,7 +678,7 @@ function UpdateSection() {
     { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
     React.createElement(
       'div',
-      { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' } },
+      { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', paddingRight: headerInset } },
       React.createElement(
         'div',
         { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
@@ -934,7 +944,7 @@ function InstalledSection() {
       { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
       React.createElement(
         'div',
-        { style: { display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' } },
+        { style: { display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between', paddingRight: headerInset } },
         React.createElement('h3', { style: { margin: 0, fontSize: 15, fontWeight: 600 } }, TEXT.installedTitle),
         React.createElement('button', { type: 'button', onClick: () => void load(), style: buttonStyle }, TEXT.refresh),
       ),
