@@ -1093,7 +1093,10 @@ window.__ModuleLoader__.load({
             {
               name: 'plugins.tab',
               id: PACKAGE_ID,
-              order: 10,
+              // Ascending among the tabs other plugins contribute, so a large
+              // negative number keeps this tab first (the page's own Installed
+              // tab is not in this slot and always stays leftmost).
+              order: -100,
               label: () => '安装 / 更新 / 卸载',
             },
             InstallPanel,

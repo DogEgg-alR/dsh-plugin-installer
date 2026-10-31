@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-installer",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "private": true,
   "type": "module",
   "description": "Install, update and remove DSH plugins, and clean up what removal leaves behind, from inside the Harness UI. 在客户端界面里直接安装、更新、卸载插件，并清理卸载后的残留。",
