@@ -125,6 +125,13 @@ const TEXT = {
   cleanupDone: '已清理',
   cleanupFailedCount: '个失败',
   cleanupNothing: '没有需要清理的残留。',
+  phaseResolve: '解析依赖',
+  phaseDownload: '下载',
+  phaseLink: '链接',
+  phaseBuild: '构建',
+  progressStarting: '准备中…',
+  elapsed: '已用',
+  stallHint: 'pnpm 装包本身就要几十秒，进度条只反映市场报告的真实阶段，不会提前跳到 100%。',
 }
 
 /**
@@ -207,6 +214,133 @@ function Working({ text }) {
       },
     }),
     text,
+  )
+}
+
+/**
+ * The pnpm stages the market reports, in the order they happen.
+ * @see dshmarket/lib/ndjson.js — `pnpm:stage` sets exactly these.
+ */
+const UPDATE_PHASES = ['resolving', 'downloading', 'linking', 'building']
+
+/**
+ * Names for the market's phase tokens.
+ * @param phase - the `progress.phase` value.
+ * @returns the label to show, or null when the token is unknown.
+ */
+function phaseLabel(phase) {
+  switch (phase) {
+    case 'resolving':
+      return TEXT.phaseResolve
+    case 'downloading':
+      return TEXT.phaseDownload
+    case 'linking':
+      return TEXT.phaseLink
+    case 'building':
+      return TEXT.phaseBuild
+    default:
+      return null
+  }
+}
+
+/**
+ * A thin bar for the operation's own progress plus its current stage.
+ *
+ * `percent` only exists once pnpm has a total to divide by, so before that the
+ * fill slides instead of pretending to know a number. Nothing here animates to
+ * 100% on its own: the bar ends where the market says the work ended.
+ *
+ * @param props - percent, phase, detail and the byte counters.
+ * @returns the bar and its caption.
+ */
+function ProgressBar({ percent, phase, detail, downloaded, size }) {
+  const known = typeof percent === 'number' && Number.isFinite(percent)
+  const label = phaseLabel(phase)
+  const bytes =
+    typeof downloaded === 'number' && downloaded > 0 && typeof size === 'number' && size > 0
+      ? `${(downloaded / 1048576).toFixed(1)} / ${(size / 1048576).toFixed(1)} MB`
+      : null
+  const caption = [detail, bytes].filter(Boolean).join(' · ')
+  return React.createElement(
+    'div',
+    { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+    React.createElement(
+      'div',
+      {
+        role: 'progressbar',
+        'aria-valuemin': 0,
+        'aria-valuemax': 100,
+        'aria-valuenow': known ? Math.round(percent) : undefined,
+        'aria-label': label ?? TEXT.updating,
+        style: {
+          position: 'relative',
+          height: 6,
+          borderRadius: 999,
+          overflow: 'hidden',
+          background: 'var(--dsw-alias-bg-muted, rgba(127,127,127,0.2))',
+        },
+      },
+      known
+        ? React.createElement('div', {
+            style: {
+              height: '100%',
+              width: `${Math.min(100, Math.max(3, Math.round(percent)))}%`,
+              borderRadius: 999,
+              background: 'var(--dsw-alias-brand-primary, #2563eb)',
+              transition: 'width 320ms ease',
+            },
+          })
+        : React.createElement('div', {
+            style: {
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              width: '45%',
+              borderRadius: 999,
+              background: 'var(--dsw-alias-brand-primary, #2563eb)',
+              animation: 'dsh-plugin-installer-bar 1.4s ease-in-out infinite',
+            },
+          }),
+    ),
+    React.createElement(
+      'div',
+      { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, ...mutedText } },
+      React.createElement('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, caption || label || TEXT.progressStarting),
+      React.createElement('span', { style: { flexShrink: 0, fontVariantNumeric: 'tabular-nums' } }, known ? `${Math.round(percent)}%` : null),
+    ),
+  )
+}
+
+/**
+ * The four stages as a row, so a long download reads as "one step" rather than
+ * "stuck".
+ * @param props - the current phase token.
+ * @returns the stage row.
+ */
+function PhaseStrip({ phase }) {
+  const index = UPDATE_PHASES.indexOf(phase)
+  return React.createElement(
+    'div',
+    { style: { display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11, color: 'var(--dsw-alias-label-secondary, #6b7280)' } },
+    ...UPDATE_PHASES.map((value, position) => {
+      const done = index > position
+      const current = index === position
+      return React.createElement(
+        'span',
+        {
+          key: value,
+          style: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            fontWeight: current ? 600 : 400,
+            color: current ? 'inherit' : done ? 'inherit' : 'var(--dsw-alias-label-tertiary, #9ca3af)',
+          },
+        },
+        React.createElement('span', { 'aria-hidden': true }, done ? '✓' : current ? '●' : '○'),
+        phaseLabel(value),
+      )
+    }),
   )
 }
 
@@ -437,7 +571,11 @@ function UpdateSection() {
         if (!stopped) setProblem(String(error?.message ?? error))
       }
     }
-    const timer = setInterval(read, 1200)
+    // Read once right away, then keep the bar fed: pnpm reports stages in
+    // bursts and a 400ms poll keeps the fill within a fifth of a second of the
+    // truth instead of a full second.
+    void read()
+    const timer = setInterval(read, 400)
     return () => {
       stopped = true
       clearInterval(timer)
@@ -617,6 +755,16 @@ function OperationCard({ operation, retryableForce, rollingBack, onForce, onRoll
   const progress = operation.progress ?? {}
   const rollbackAvailable = operation.outcome?.rollback?.available === true
 
+  // A ticking clock, so a slow pnpm run looks slow instead of looking dead.
+  const [now, setNow] = React.useState(Date.now())
+  React.useEffect(() => {
+    if (!active) return undefined
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [active])
+  const startedAt = operation.startedAt ?? operation.createdAt
+  const elapsed = active && typeof startedAt === 'number' ? Math.max(0, Math.round((now - startedAt) / 1000)) : null
+
   const headline = active ? `${TEXT.updating} ${operation.packageName}` : succeeded ? `${TEXT.updated} ${operation.packageName}` : rolledBack ? TEXT.rolledBack : `${TEXT.updateFailed} ${operation.packageName}`
   const color = active ? 'inherit' : succeeded || rolledBack ? '#15803d' : '#b91c1c'
 
@@ -632,19 +780,21 @@ function OperationCard({ operation, retryableForce, rollingBack, onForce, onRoll
         { style: { fontSize: 12, fontVariantNumeric: 'tabular-nums' } },
         versionLine(operation),
       ),
+      elapsed === null
+        ? null
+        : React.createElement('span', { style: { ...mutedText, fontVariantNumeric: 'tabular-nums' } }, `${TEXT.elapsed} ${elapsed}s`),
     ),
     active
-      ? React.createElement(Working, {
-          text: [
-            progress.phase ?? state,
-            progress.percent !== null && progress.percent !== undefined ? `${progress.percent}%` : null,
-            progress.currentPackage ?? null,
-            progress.detail ?? null,
-          ]
-            .filter(Boolean)
-            .join(' · '),
+      ? React.createElement(ProgressBar, {
+          percent: progress.percent,
+          phase: progress.phase ?? (state === 'queued' ? null : state),
+          detail: progress.detail ?? null,
+          downloaded: progress.downloaded ?? null,
+          size: progress.size ?? null,
         })
       : null,
+    active ? React.createElement(PhaseStrip, { phase: progress.phase ?? null }) : null,
+    active ? React.createElement('p', { style: { margin: 0, fontSize: 11, lineHeight: 1.6, color: 'var(--dsw-alias-label-tertiary, #9ca3af)' } }, TEXT.stallHint) : null,
     failure === null || failure === undefined
       ? null
       : React.createElement('p', { style: { margin: 0, fontSize: 13, lineHeight: 1.6 } }, failureText(failure)),
@@ -907,7 +1057,12 @@ function InstallPanel() {
   return React.createElement(
     'div',
     { style: { display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 720, paddingTop: 8 } },
-    React.createElement('style', null, '@keyframes dsh-plugin-installer-spin{to{transform:rotate(360deg)}}'),
+    React.createElement(
+      'style',
+      null,
+      '@keyframes dsh-plugin-installer-spin{to{transform:rotate(360deg)}}',
+      '@keyframes dsh-plugin-installer-bar{0%{transform:translateX(-110%)}55%{transform:translateX(70%)}100%{transform:translateX(260%)}}',
+    ),
     React.createElement(InstallSection),
     React.createElement('hr', { style: { margin: 0, border: 0, borderTop: '1px solid var(--dsw-alias-border-default, #d1d5db)' } }),
     React.createElement(UpdateSection),

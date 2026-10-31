@@ -75,7 +75,17 @@ pnpm add github:DogEgg-alR/dsh-plugin-installer
 
 ![更新进行中](assets/demo-progress.png)
 
-进度会跟着市场的 `phase / percent / 当前包` 走；结束后：
+进度条跟着市场报告的 `phase / percent / downloaded / detail` 走：
+
+- 有 `percent` 时是确定进度条（宽度 320ms 过渡），右侧是百分比；
+- 还没报总数时是一条滑动的条，不会假装知道百分比；
+- 下面四个阶段 `解析依赖 → 下载 → 链接 → 构建` 来自 pnpm 的 `pnpm:stage` 事件，
+  当前阶段加粗、已完成的打勾——长时间停在「下载」时能看出是卡在哪一步，而不是一个空转的圈；
+- 头部有 `已用 Ns` 走秒，卡片底部有一句说明：**进度条不会自己跳到 100%**。
+
+轮询是 400ms（启动更新后立刻读一次），所以显示最多比真实状态慢不到半秒。真正的耗时在
+pnpm 上：它要在整个 profile 里重新解析并落盘，几十秒是常态，这个插件不会、也不该缩短它——
+只是把它变成看得见的过程。结束后：
 
 ![更新完成](assets/demo-done.png)
 
