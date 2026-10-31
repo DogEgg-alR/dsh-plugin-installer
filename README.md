@@ -158,6 +158,7 @@ pnpm 上：它要在整个 profile 里重新解析并落盘，几十秒是常态
 - DeepSeek Harness 桌面端 / `dsh web`，profile 名任意
 - 更新功能需要 dshmarket 1.66+（`update-api/v1`，beta）
 - 客户端半只依赖 `react`（由加载器注入），无其它前端依赖
+- 主按钮用固定的蓝色 `#2563eb`，不跟随主题的 `--dsw-alias-brand-primary`——桌面端这个 token 是近黑色，用上去按钮会和截图里不一样；其余颜色（边框、成功/失败/警告、次要文字）都走主题 token（`--dsw-alias-border-l1`、`--dsw-alias-state-*`、`--dsw-alias-label-secondary`），亮色/暗色自动适配
 
 ## 目录结构
 

@@ -167,14 +167,20 @@ function failureText(failure) {
 }
 
 /** Shared card chrome for one outcome. */
+const ACCENT = '#2563eb'
+
+const ERROR_INK = 'var(--dsw-alias-state-error-primary, #b91c1c)'
+const SUCCESS_INK = 'var(--dsw-alias-state-success-primary, #15803d)'
+const WARN_INK = 'var(--dsw-alias-state-warn-primary, #b45309)'
+
 const cardStyle = {
   display: 'flex',
   flexDirection: 'column',
   gap: 8,
   padding: 12,
   borderRadius: 8,
-  border: '1px solid var(--dsw-alias-border-default, #d1d5db)',
-  background: 'var(--dsw-alias-bg-subtle, rgba(127,127,127,0.06))',
+  border: '1px solid var(--dsw-alias-border-l1, #d1d5db)',
+  background: 'var(--dsw-alias-bg-layer-2, rgba(127,127,127,0.06))',
 }
 
 const buttonStyle = {
@@ -182,13 +188,13 @@ const buttonStyle = {
   fontSize: 12,
   fontWeight: 600,
   borderRadius: 8,
-  border: '1px solid var(--dsw-alias-border-default, #d1d5db)',
+  border: '1px solid var(--dsw-alias-border-l1, #d1d5db)',
   background: 'transparent',
   color: 'inherit',
   cursor: 'pointer',
 }
 
-const primaryButtonStyle = { ...buttonStyle, border: '1px solid transparent', background: 'var(--dsw-alias-brand-primary, #2563eb)', color: '#fff' }
+const primaryButtonStyle = { ...buttonStyle, border: '1px solid transparent', background: ACCENT, color: '#fff' }
 
 const mutedText = { fontSize: 12, lineHeight: 1.6, color: 'var(--dsw-alias-label-secondary, #6b7280)' }
 
@@ -277,7 +283,7 @@ function ProgressBar({ percent, phase, detail, downloaded, size }) {
           height: 6,
           borderRadius: 999,
           overflow: 'hidden',
-          background: 'var(--dsw-alias-bg-muted, rgba(127,127,127,0.2))',
+          background: 'var(--dsw-alias-border-l1, #e5e7eb)',
         },
       },
       known
@@ -286,7 +292,7 @@ function ProgressBar({ percent, phase, detail, downloaded, size }) {
               height: '100%',
               width: `${Math.min(100, Math.max(3, Math.round(percent)))}%`,
               borderRadius: 999,
-              background: 'var(--dsw-alias-brand-primary, #2563eb)',
+              background: ACCENT,
               transition: 'width 320ms ease',
             },
           })
@@ -297,7 +303,7 @@ function ProgressBar({ percent, phase, detail, downloaded, size }) {
               bottom: 0,
               width: '45%',
               borderRadius: 999,
-              background: 'var(--dsw-alias-brand-primary, #2563eb)',
+              background: ACCENT,
               animation: 'dsh-plugin-installer-bar 1.4s ease-in-out infinite',
             },
           }),
@@ -334,7 +340,7 @@ function PhaseStrip({ phase }) {
             alignItems: 'center',
             gap: 4,
             fontWeight: current ? 600 : 400,
-            color: current ? 'inherit' : done ? 'inherit' : 'var(--dsw-alias-label-tertiary, #9ca3af)',
+            color: current ? 'inherit' : done ? 'inherit' : 'var(--dsw-alias-label-secondary, #9ca3af)',
           },
         },
         React.createElement('span', { 'aria-hidden': true }, done ? '✓' : current ? '●' : '○'),
@@ -451,7 +457,7 @@ function InstallSection() {
           padding: '8px 10px',
           fontSize: 13,
           borderRadius: 8,
-          border: '1px solid var(--dsw-alias-border-default, #d1d5db)',
+          border: '1px solid var(--dsw-alias-border-l1, #d1d5db)',
           background: 'var(--dsw-alias-bg-base, transparent)',
           color: 'inherit',
         },
@@ -465,12 +471,12 @@ function InstallSection() {
             if (done) reset()
             else void start()
           },
-          style: running ? { ...primaryButtonStyle, background: 'var(--dsw-alias-bg-muted, #e5e7eb)', color: 'var(--dsw-alias-label-secondary, #6b7280)', cursor: 'default' } : primaryButtonStyle,
+          style: running ? { ...primaryButtonStyle, background: 'var(--dsw-alias-bg-layer-1, #e5e7eb)', color: 'var(--dsw-alias-label-secondary, #6b7280)', cursor: 'default' } : primaryButtonStyle,
         },
         running ? TEXT.installing : done ? TEXT.again : TEXT.install,
       ),
     ),
-    problem === null ? null : React.createElement('p', { style: { margin: 0, fontSize: 13, color: '#b91c1c' } }, problem),
+    problem === null ? null : React.createElement('p', { style: { margin: 0, fontSize: 13, color: ERROR_INK } }, problem),
     running ? React.createElement(Working, { text: `${TEXT.installing} ${TEXT.elapsed} ${seconds} ${TEXT.second}` }) : null,
     !done
       ? null
@@ -480,7 +486,7 @@ function InstallSection() {
           React.createElement(
             'div',
             { style: { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' } },
-            React.createElement('strong', { style: { fontSize: 13, color: succeeded ? '#15803d' : '#b91c1c' } }, succeeded ? TEXT.added : TEXT.failed),
+            React.createElement('strong', { style: { fontSize: 13, color: succeeded ? SUCCESS_INK : ERROR_INK } }, succeeded ? TEXT.added : TEXT.failed),
             React.createElement('code', { style: { fontSize: 12 } }, [result.target ?? job.spec, result.version].filter(Boolean).join('@')),
           ),
           React.createElement(
@@ -698,7 +704,7 @@ function UpdateSection() {
               'div',
               {
                 key: row.name,
-                style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-default, #d1d5db)' },
+                style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l1, #d1d5db)' },
               },
               React.createElement(
                 'div',
@@ -723,7 +729,7 @@ function UpdateSection() {
             ),
           ),
         ),
-    problem === null ? null : React.createElement('p', { style: { margin: 0, fontSize: 13, color: '#b91c1c' } }, problem),
+    problem === null ? null : React.createElement('p', { style: { margin: 0, fontSize: 13, color: ERROR_INK } }, problem),
     !showOperation ? null : React.createElement(OperationCard, { operation, retryableForce, rollingBack, onForce: () => void startUpdate(operation.packageName, true), onRollback: () => void rollback() }),
   )
 }
@@ -766,7 +772,7 @@ function OperationCard({ operation, retryableForce, rollingBack, onForce, onRoll
   const elapsed = active && typeof startedAt === 'number' ? Math.max(0, Math.round((now - startedAt) / 1000)) : null
 
   const headline = active ? `${TEXT.updating} ${operation.packageName}` : succeeded ? `${TEXT.updated} ${operation.packageName}` : rolledBack ? TEXT.rolledBack : `${TEXT.updateFailed} ${operation.packageName}`
-  const color = active ? 'inherit' : succeeded || rolledBack ? '#15803d' : '#b91c1c'
+  const color = active ? 'inherit' : succeeded || rolledBack ? SUCCESS_INK : ERROR_INK
 
   return React.createElement(
     'div',
@@ -794,7 +800,7 @@ function OperationCard({ operation, retryableForce, rollingBack, onForce, onRoll
         })
       : null,
     active ? React.createElement(PhaseStrip, { phase: progress.phase ?? null }) : null,
-    active ? React.createElement('p', { style: { margin: 0, fontSize: 11, lineHeight: 1.6, color: 'var(--dsw-alias-label-tertiary, #9ca3af)' } }, TEXT.stallHint) : null,
+    active ? React.createElement('p', { style: { margin: 0, fontSize: 11, lineHeight: 1.6, color: 'var(--dsw-alias-label-secondary, #9ca3af)' } }, TEXT.stallHint) : null,
     failure === null || failure === undefined
       ? null
       : React.createElement('p', { style: { margin: 0, fontSize: 13, lineHeight: 1.6 } }, failureText(failure)),
@@ -934,7 +940,7 @@ function InstalledSection() {
       ),
       React.createElement('p', { style: { margin: 0, ...mutedText } }, TEXT.installedHint),
     ),
-    problem === null ? null : React.createElement('p', { style: { margin: 0, fontSize: 13, color: '#b91c1c' } }, problem),
+    problem === null ? null : React.createElement('p', { style: { margin: 0, fontSize: 13, color: ERROR_INK } }, problem),
     bundles === null ? React.createElement(Working, { text: TEXT.loadingBundles }) : null,
     bundles !== null && rows.length === 0 ? React.createElement('p', { style: { margin: 0, ...mutedText } }, TEXT.noBundles) : null,
     ...rows.map((bundle) =>
@@ -948,7 +954,7 @@ function InstalledSection() {
             gap: 10,
             padding: '10px 12px',
             borderRadius: 8,
-            border: '1px solid var(--dsw-alias-border-default, #d1d5db)',
+            border: '1px solid var(--dsw-alias-border-l1, #d1d5db)',
           },
         },
         React.createElement(
@@ -959,10 +965,10 @@ function InstalledSection() {
             { style: { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' } },
             React.createElement('code', { style: { fontSize: 13 } }, bundle.name),
             bundle.version === undefined ? null : React.createElement('span', { style: mutedText }, bundle.version),
-            React.createElement('span', { style: { ...mutedText, color: bundle.enabled ? '#15803d' : undefined } }, bundle.enabled ? TEXT.enabled : TEXT.disabled),
+            React.createElement('span', { style: { ...mutedText, color: bundle.enabled ? SUCCESS_INK : undefined } }, bundle.enabled ? TEXT.enabled : TEXT.disabled),
           ),
           bundle.description === undefined ? null : React.createElement('span', { style: { ...mutedText, overflow: 'hidden', textOverflow: 'ellipsis' } }, bundle.description),
-          bundle.name === PACKAGE_ID ? React.createElement('span', { style: { ...mutedText, color: '#b45309' } }, TEXT.selfHint) : null,
+          bundle.name === PACKAGE_ID ? React.createElement('span', { style: { ...mutedText, color: WARN_INK } }, TEXT.selfHint) : null,
           bundle.removable !== true ? React.createElement('span', { style: mutedText }, TEXT.notRemovable) : null,
         ),
         busyName === bundle.name
@@ -971,7 +977,7 @@ function InstalledSection() {
             ? React.createElement(
                 'div',
                 { style: { display: 'flex', gap: 6 } },
-                React.createElement('button', { type: 'button', onClick: () => void remove(bundle.name), style: { ...buttonStyle, color: '#b91c1c' } }, TEXT.confirmRemove),
+                React.createElement('button', { type: 'button', onClick: () => void remove(bundle.name), style: { ...buttonStyle, color: ERROR_INK } }, TEXT.confirmRemove),
                 React.createElement('button', { type: 'button', onClick: () => setConfirmName(null), style: buttonStyle }, TEXT.cancel),
               )
             : React.createElement(
@@ -1013,7 +1019,7 @@ function InstalledSection() {
             ? null
             : React.createElement(
                 'span',
-                { style: { ...mutedText, color: cleanup.failed > 0 ? '#b45309' : '#15803d' } },
+                { style: { ...mutedText, color: cleanup.failed > 0 ? WARN_INK : SUCCESS_INK } },
                 `${TEXT.cleanupDone} ${cleanup.cleaned}` +
                   (cleanup.failed > 0 ? `，${cleanup.failed} ${TEXT.cleanupFailedCount}` : ''),
               ),
@@ -1026,7 +1032,7 @@ function InstalledSection() {
           React.createElement(
             'div',
             { style: { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' } },
-            React.createElement('strong', { style: { fontSize: 13, color: outcome.result.ok ? '#15803d' : '#b91c1c' } }, outcome.result.ok ? `${TEXT.removed} ${outcome.name}` : `${TEXT.removeFailed} ${outcome.name}`),
+            React.createElement('strong', { style: { fontSize: 13, color: outcome.result.ok ? SUCCESS_INK : ERROR_INK } }, outcome.result.ok ? `${TEXT.removed} ${outcome.name}` : `${TEXT.removeFailed} ${outcome.name}`),
           ),
           outcome.result.message === undefined ? null : React.createElement('p', { style: { margin: 0, fontSize: 13, lineHeight: 1.6 } }, outcome.result.message),
           outcome.result.bypassed === 'disable-first' ? React.createElement('p', { style: { margin: 0, ...mutedText } }, TEXT.bypassedDisable) : null,
@@ -1056,17 +1062,21 @@ function InstalledSection() {
 function InstallPanel() {
   return React.createElement(
     'div',
-    { style: { display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 720, paddingTop: 8 } },
+    { className: 'dsh-plugin-installer-panel', style: { display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 720, paddingTop: 8 } },
     React.createElement(
       'style',
       null,
       '@keyframes dsh-plugin-installer-spin{to{transform:rotate(360deg)}}',
       '@keyframes dsh-plugin-installer-bar{0%{transform:translateX(-110%)}55%{transform:translateX(70%)}100%{transform:translateX(260%)}}',
+      `.dsh-plugin-installer-panel button{transition:filter 120ms ease,opacity 120ms ease}
+.dsh-plugin-installer-panel button:hover:not(:disabled){filter:brightness(0.94)}
+.dsh-plugin-installer-panel button:focus-visible{outline:2px solid ${ACCENT};outline-offset:2px}
+.dsh-plugin-installer-panel button:disabled{cursor:default}`,
     ),
     React.createElement(InstallSection),
-    React.createElement('hr', { style: { margin: 0, border: 0, borderTop: '1px solid var(--dsw-alias-border-default, #d1d5db)' } }),
+    React.createElement('hr', { style: { margin: 0, border: 0, borderTop: '1px solid var(--dsw-alias-border-l1, #d1d5db)' } }),
     React.createElement(UpdateSection),
-    React.createElement('hr', { style: { margin: 0, border: 0, borderTop: '1px solid var(--dsw-alias-border-default, #d1d5db)' } }),
+    React.createElement('hr', { style: { margin: 0, border: 0, borderTop: '1px solid var(--dsw-alias-border-l1, #d1d5db)' } }),
     React.createElement(InstalledSection),
   )
 }
