@@ -1,0 +1,31 @@
+{
+  "name": "dsh-plugin-installer",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Install and update DSH plugins from inside the Harness UI: a Plugins tab that installs through the profile's pluginManager and updates through dshmarket's public update API v1. 在客户端界面里直接安装与更新插件。",
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}

@@ -1,0 +1,4 @@
+# Insert this bundle into the profile: one host row mounting the install bridge.
+- insert:
+    - id: dsh-plugin-installer
+      name: dsh-plugin-installer
