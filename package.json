@@ -5,6 +5,21 @@
   "type": "module",
   "description": "Install and update DSH plugins from inside the Harness UI: a Plugins tab that installs through the profile's pluginManager and updates through dshmarket's public update API v1. 在客户端界面里直接安装与更新插件。",
   "license": "MIT",
+  "author": "DE_alR (DogEgg-alR)",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "plugin-manager"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DogEgg-alR/dsh-plugin-installer.git"
+  },
+  "homepage": "https://github.com/DogEgg-alR/dsh-plugin-installer#readme",
+  "bugs": {
+    "url": "https://github.com/DogEgg-alR/dsh-plugin-installer/issues"
+  },
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",
