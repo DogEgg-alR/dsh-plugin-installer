@@ -108,6 +108,20 @@ pnpm add github:DogEgg-alR/dsh-plugin-installer
 第 3 步不需要 pnpm，也不会碰正在运行的进程，随时安全。界面上会明确告诉你走的是哪一步
 （「已先停用再删除」还是「已从 profile 配置里摘除」），以及是不是要重启才彻底消失。
 
+![已安装的插件](assets/demo-uninstall.png)
+
+走第 3 步时插件会被记进「待清理」队列（`<profile>/.dsh-plugin-installer/pending-cleanup.json`）：
+
+![摘除后进入待清理](assets/demo-removed.png)
+
+- 下次宿主启动约 10 秒后自动扫一遍队列，把 `node_modules` 里的残留删掉——此时进程里已经没有
+  那份代码，删文件是安全的；
+- 不想等重启也可以点「立即清理」，`POST /dsh-plugin-installer/api/cleanup` 立刻执行同一套清理；
+- 清理前会再确认一次这个包**没有**重新出现在 profile 配置里：你要是刚把它装回来，它就自动出队、
+  不会被动到；删失败的条目留在队列里并累加 `attempts`，下次启动再试。
+
+![清理完成](assets/demo-cleaned.png)
+
 ## 工作原理
 
 - **安装**：客户端半调宿主半的 HTTP 桥（`POST /dsh-plugin-installer/api/install`），
@@ -122,6 +136,10 @@ pnpm add github:DogEgg-alR/dsh-plugin-installer
 - **卸载**：`POST /dsh-plugin-installer/api/remove` + 同一条 job 轮询。宿主半按
   「直接移除 → 停用后再移除 → 从 profile 配置摘除」逐级降级（见上文「卸载」），
   每一步的结果都回给界面，所以按钮不会卡在一句你无法处理的话上。
+- **清理残留**：摘除后的包名写进 `<profile>/.dsh-plugin-installer/pending-cleanup.json`；
+  宿主启动 10 秒后（`ctx.effect` 管着定时器，插件卸载时一起清掉）扫一遍队列，
+  `GET/POST /dsh-plugin-installer/api/cleanup` 让界面能看队列、也能立刻触发同一套清理。
+  删除前会读一遍 profile 配置，确认该包没被重新声明——避免把刚装回来的插件删掉。
 - **为什么不自己实现更新**：版本校验、release-age 策略、恢复点与回滚都在市场里；
   重写一遍只会和它打架，所以这里只做转发和展示。
 

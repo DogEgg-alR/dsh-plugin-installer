@@ -117,7 +117,14 @@ const TEXT = {
   removed: '已卸载',
   removeFailed: '卸载失败',
   bypassedDisable: '直接删除被拒绝（插件正在使用），已先停用再删除。',
-  bypassedManifest: '直接删除被拒绝（插件正在使用），已从 profile 配置里摘除：文件留在 node_modules 里不再加载，重启后彻底消失，之后重新安装会自动清掉。',
+  bypassedManifest: '直接删除被拒绝（插件正在使用），已从 profile 配置里摘除：文件留在 node_modules 里不再加载，重启后会自动清掉，也可以在这里马上清理。',
+  pendingTitle: '待清理',
+  pendingHint: '这些插件的配置已经摘除，文件还在 node_modules 里；重启后会自动清掉，也可以现在就清。',
+  cleanupNow: '立即清理',
+  cleaning: '正在清理…',
+  cleanupDone: '已清理',
+  cleanupFailedCount: '个失败',
+  cleanupNothing: '没有需要清理的残留。',
 }
 
 /**
@@ -673,6 +680,9 @@ function InstalledSection() {
   const [confirmName, setConfirmName] = React.useState(null)
   const [busyName, setBusyName] = React.useState(null)
   const [outcome, setOutcome] = React.useState(null)
+  const [pending, setPending] = React.useState([])
+  const [cleanup, setCleanup] = React.useState(null)
+  const [cleaning, setCleaning] = React.useState(false)
 
   const load = async () => {
     try {
@@ -687,6 +697,36 @@ function InstalledSection() {
     } catch (error) {
       setProblem(String(error?.message ?? error))
     }
+    try {
+      const response = await fetch(apiUrl('cleanup'), { cache: 'no-store' })
+      const body = await readJson(response)
+      setPending(Array.isArray(body.entries) ? body.entries : [])
+    } catch {
+      // The cleanup list is advisory: a failure just hides that block.
+    }
+  }
+
+  const cleanNow = async () => {
+    setCleaning(true)
+    setCleanup(null)
+    try {
+      const response = await fetch(apiUrl('cleanup'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      const body = await readJson(response)
+      if (!response.ok) {
+        setProblem(body.message ?? `请求失败（HTTP ${response.status}）`)
+      } else {
+        const results = Array.isArray(body.results) ? body.results : []
+        setCleanup({
+          cleaned: results.filter((item) => item.outcome === 'removed' || item.outcome === 'unlinked' || item.outcome === 'missing').length,
+          failed: results.filter((item) => item.outcome === 'failed').length,
+          skipped: results.filter((item) => item.outcome === 'declared-again').length,
+        })
+        setPending(Array.isArray(body.remaining) ? body.remaining : [])
+      }
+    } catch (error) {
+      setProblem(String(error?.message ?? error))
+    }
+    setCleaning(false)
   }
 
   React.useEffect(() => {
@@ -796,6 +836,38 @@ function InstalledSection() {
               ),
       ),
     ),
+    pending.length === 0 && cleanup === null
+      ? null
+      : React.createElement(
+          'div',
+          { style: { ...cardStyle, background: 'transparent' } },
+          React.createElement(
+            'div',
+            { style: { display: 'flex', alignItems: 'flex-start', gap: 10, justifyContent: 'space-between' } },
+            React.createElement(
+              'div',
+              { style: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 } },
+              React.createElement('strong', { style: { fontSize: 13 } }, `${TEXT.pendingTitle}（${pending.length}）`),
+              React.createElement('span', { style: mutedText }, pending.length === 0 ? TEXT.cleanupNothing : TEXT.pendingHint),
+              ...pending.map((entry, index) =>
+                React.createElement('code', { key: index, style: { fontSize: 12 } }, entry.name),
+              ),
+            ),
+            cleaning
+              ? React.createElement(Working, { text: TEXT.cleaning })
+              : pending.length > 0
+                ? React.createElement('button', { type: 'button', onClick: () => void cleanNow(), style: buttonStyle }, TEXT.cleanupNow)
+                : null,
+          ),
+          cleanup === null
+            ? null
+            : React.createElement(
+                'span',
+                { style: { ...mutedText, color: cleanup.failed > 0 ? '#b45309' : '#15803d' } },
+                `${TEXT.cleanupDone} ${cleanup.cleaned}` +
+                  (cleanup.failed > 0 ? `，${cleanup.failed} ${TEXT.cleanupFailedCount}` : ''),
+              ),
+        ),
     outcome === null
       ? null
       : React.createElement(
