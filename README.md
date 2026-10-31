@@ -87,6 +87,27 @@ pnpm add github:DogEgg-alR/dsh-plugin-installer
 更新区需要装 [dshmarket](https://github.com/dsh-market/dsh-market)。没装时这一块只显示一句
 提示，不会假装能更新，也不影响上面的安装功能。
 
+### 卸载
+
+列表里每一行都能「卸载」（两步确认），不用去命令行。麻烦的是最后一类情况：
+
+> 这个插件正在使用中，桌面端不允许现在移除 / the plugin is in use, and the desktop app
+> will not remove it right now (`bundle-in-use`)
+
+这条限制来自 `pluginManager.removeBundle()`：它会先让 HMR 把该组合包的条目卸载掉，
+卸不掉就直接拒绝，因为**不能把文件从正在运行的代码下面抽走**。本地目录 / 链接安装的插件
+几乎必然命中它——代码就在你眼前跑着。
+
+所以这里分三步走，能走通哪一步结果里就写哪一步：
+
+1. 直接移除；
+2. 被拒（`bundle-in-use` / `stop-profile`）→ 先停用这个组合包，再移除；
+3. 还被拒 → 只把它从 profile 配置里摘掉：`dependencies` 与 `dsh.profile.bundles`
+   各删一条，重启后不再组合。文件留在 `node_modules` 里不再加载，下次安装会被覆盖/清掉。
+
+第 3 步不需要 pnpm，也不会碰正在运行的进程，随时安全。界面上会明确告诉你走的是哪一步
+（「已先停用再删除」还是「已从 profile 配置里摘除」），以及是不是要重启才彻底消失。
+
 ## 工作原理
 
 - **安装**：客户端半调宿主半的 HTTP 桥（`POST /dsh-plugin-installer/api/install`），
@@ -98,6 +119,9 @@ pnpm add github:DogEgg-alR/dsh-plugin-installer
   然后 `POST /updates` → 轮询 `GET /operations?operationId=` → 必要时 `POST /rollback`。
 - **为什么不用 CLI**：桌面端 profile 归 app 所有，`dsh plugin` 在应用运行时会等文件锁。
   进程内的 `pluginManager` 才是官方插件页用的那条路。
+- **卸载**：`POST /dsh-plugin-installer/api/remove` + 同一条 job 轮询。宿主半按
+  「直接移除 → 停用后再移除 → 从 profile 配置摘除」逐级降级（见上文「卸载」），
+  每一步的结果都回给界面，所以按钮不会卡在一句你无法处理的话上。
 - **为什么不自己实现更新**：版本校验、release-age 策略、恢复点与回滚都在市场里；
   重写一遍只会和它打架，所以这里只做转发和展示。
 

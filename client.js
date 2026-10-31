@@ -100,6 +100,24 @@ const TEXT = {
   rolledBack: '已回滚到更新前的版本。',
   rollbackFailed: '回滚失败',
   restartNeeded: '重启 DeepSeek Harness 后生效。',
+  installedTitle: '已安装的插件',
+  installedHint:
+    '在这里卸载插件。正在运行的插件（文件来自本地目录或链接安装）无法直接删除文件，会先停用；若仍不行，就把它从 profile 配置里摘除，重启后不再加载。',
+  refresh: '刷新',
+  loadingBundles: '正在读取已安装列表…',
+  noBundles: '没有可显示的插件。',
+  enabled: '已启用',
+  disabled: '已停用',
+  remove: '卸载',
+  removing: '正在卸载…',
+  confirmRemove: '确认卸载',
+  cancel: '取消',
+  selfHint: '这就是当前这个插件；卸载后「安装插件」页会消失，可随时用命令行装回来。',
+  notRemovable: '这个插件不能在这里卸载。',
+  removed: '已卸载',
+  removeFailed: '卸载失败',
+  bypassedDisable: '直接删除被拒绝（插件正在使用），已先停用再删除。',
+  bypassedManifest: '直接删除被拒绝（插件正在使用），已从 profile 配置里摘除：文件留在 node_modules 里不再加载，重启后彻底消失，之后重新安装会自动清掉。',
 }
 
 /**
@@ -640,6 +658,176 @@ function OperationCard({ operation, retryableForce, rollingBack, onForce, onRoll
 }
 
 /**
+ * Remove one installed plugin.
+ *
+ * Removal runs through this package's host bridge, which retries a refused
+ * `bundle-in-use` by disabling the bundle first and finally by dropping it
+ * from the profile manifest, so the button never dead-ends in a message the
+ * user cannot act on. What the host could achieve is reported per step.
+ *
+ * @returns the installed-plugins section.
+ */
+function InstalledSection() {
+  const [bundles, setBundles] = React.useState(null)
+  const [problem, setProblem] = React.useState(null)
+  const [confirmName, setConfirmName] = React.useState(null)
+  const [busyName, setBusyName] = React.useState(null)
+  const [outcome, setOutcome] = React.useState(null)
+
+  const load = async () => {
+    try {
+      const response = await fetch(apiUrl('bundles'), { cache: 'no-store' })
+      const body = await readJson(response)
+      if (!response.ok) {
+        setProblem(body.message ?? `请求失败（HTTP ${response.status}）`)
+        return
+      }
+      setProblem(null)
+      setBundles(Array.isArray(body.bundles) ? body.bundles : [])
+    } catch (error) {
+      setProblem(String(error?.message ?? error))
+    }
+  }
+
+  React.useEffect(() => {
+    void load()
+  }, [])
+
+  const waitForJob = async (jobId) => {
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      const response = await fetch(apiUrl(`job?id=${encodeURIComponent(jobId)}`), { cache: 'no-store' })
+      const body = await readJson(response)
+      if (body?.status === 'done' || response.status === 404) return body
+    }
+  }
+
+  const remove = async (name) => {
+    setConfirmName(null)
+    setBusyName(name)
+    setOutcome(null)
+    try {
+      const response = await fetch(apiUrl('remove'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const body = await readJson(response)
+      if (!response.ok) {
+        setProblem(body.message ?? `请求失败（HTTP ${response.status}）`)
+        setBusyName(null)
+        return
+      }
+      const job = await waitForJob(body.jobId)
+      setOutcome({ name, result: job?.result ?? { ok: false, message: '任务已丢失，请刷新页面确认结果。' } })
+      setBusyName(null)
+      void load()
+    } catch (error) {
+      setProblem(String(error?.message ?? error))
+      setBusyName(null)
+    }
+  }
+
+  const rows = (bundles ?? []).filter((bundle) => bundle.installed !== false || bundle.enabled === true)
+
+  return React.createElement(
+    'div',
+    { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+    React.createElement(
+      'div',
+      { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+      React.createElement(
+        'div',
+        { style: { display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' } },
+        React.createElement('h3', { style: { margin: 0, fontSize: 15, fontWeight: 600 } }, TEXT.installedTitle),
+        React.createElement('button', { type: 'button', onClick: () => void load(), style: buttonStyle }, TEXT.refresh),
+      ),
+      React.createElement('p', { style: { margin: 0, ...mutedText } }, TEXT.installedHint),
+    ),
+    problem === null ? null : React.createElement('p', { style: { margin: 0, fontSize: 13, color: '#b91c1c' } }, problem),
+    bundles === null ? React.createElement(Working, { text: TEXT.loadingBundles }) : null,
+    bundles !== null && rows.length === 0 ? React.createElement('p', { style: { margin: 0, ...mutedText } }, TEXT.noBundles) : null,
+    ...rows.map((bundle) =>
+      React.createElement(
+        'div',
+        {
+          key: bundle.name,
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: '1px solid var(--dsw-alias-border-default, #d1d5db)',
+          },
+        },
+        React.createElement(
+          'div',
+          { style: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 } },
+          React.createElement(
+            'div',
+            { style: { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' } },
+            React.createElement('code', { style: { fontSize: 13 } }, bundle.name),
+            bundle.version === undefined ? null : React.createElement('span', { style: mutedText }, bundle.version),
+            React.createElement('span', { style: { ...mutedText, color: bundle.enabled ? '#15803d' : undefined } }, bundle.enabled ? TEXT.enabled : TEXT.disabled),
+          ),
+          bundle.description === undefined ? null : React.createElement('span', { style: { ...mutedText, overflow: 'hidden', textOverflow: 'ellipsis' } }, bundle.description),
+          bundle.name === PACKAGE_ID ? React.createElement('span', { style: { ...mutedText, color: '#b45309' } }, TEXT.selfHint) : null,
+          bundle.removable !== true ? React.createElement('span', { style: mutedText }, TEXT.notRemovable) : null,
+        ),
+        busyName === bundle.name
+          ? React.createElement(Working, { text: TEXT.removing })
+          : confirmName === bundle.name
+            ? React.createElement(
+                'div',
+                { style: { display: 'flex', gap: 6 } },
+                React.createElement('button', { type: 'button', onClick: () => void remove(bundle.name), style: { ...buttonStyle, color: '#b91c1c' } }, TEXT.confirmRemove),
+                React.createElement('button', { type: 'button', onClick: () => setConfirmName(null), style: buttonStyle }, TEXT.cancel),
+              )
+            : React.createElement(
+                'button',
+                {
+                  type: 'button',
+                  disabled: busyName !== null || bundle.removable !== true,
+                  onClick: () => setConfirmName(bundle.name),
+                  style: bundle.removable === true ? buttonStyle : { ...buttonStyle, opacity: 0.5, cursor: 'default' },
+                },
+                TEXT.remove,
+              ),
+      ),
+    ),
+    outcome === null
+      ? null
+      : React.createElement(
+          'div',
+          { style: cardStyle },
+          React.createElement(
+            'div',
+            { style: { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' } },
+            React.createElement('strong', { style: { fontSize: 13, color: outcome.result.ok ? '#15803d' : '#b91c1c' } }, outcome.result.ok ? `${TEXT.removed} ${outcome.name}` : `${TEXT.removeFailed} ${outcome.name}`),
+          ),
+          outcome.result.message === undefined ? null : React.createElement('p', { style: { margin: 0, fontSize: 13, lineHeight: 1.6 } }, outcome.result.message),
+          outcome.result.bypassed === 'disable-first' ? React.createElement('p', { style: { margin: 0, ...mutedText } }, TEXT.bypassedDisable) : null,
+          outcome.result.bypassed === 'manifest-only' ? React.createElement('p', { style: { margin: 0, ...mutedText } }, TEXT.bypassedManifest) : null,
+          outcome.result.pendingRestart === true ? React.createElement('p', { style: { margin: 0, ...mutedText } }, TEXT.restartNeeded) : null,
+          Array.isArray(outcome.result.steps) && outcome.result.steps.length > 0
+            ? React.createElement(
+                'div',
+                { style: { display: 'flex', flexDirection: 'column', gap: 2, ...mutedText } },
+                ...outcome.result.steps.map((step, index) =>
+                  React.createElement(
+                    'span',
+                    { key: index },
+                    `${step.ok ? '✓' : '×'} ${step.action}${step.errorCode === undefined ? '' : ` (${step.errorCode})`}`,
+                  ),
+                ),
+              )
+            : null,
+        ),
+  )
+}
+
+/**
  * The tab body.
  * @returns both sections.
  */
@@ -651,6 +839,8 @@ function InstallPanel() {
     React.createElement(InstallSection),
     React.createElement('hr', { style: { margin: 0, border: 0, borderTop: '1px solid var(--dsw-alias-border-default, #d1d5db)' } }),
     React.createElement(UpdateSection),
+    React.createElement('hr', { style: { margin: 0, border: 0, borderTop: '1px solid var(--dsw-alias-border-default, #d1d5db)' } }),
+    React.createElement(InstalledSection),
   )
 }
 
@@ -667,7 +857,7 @@ window.__ModuleLoader__.load({
               name: 'plugins.tab',
               id: PACKAGE_ID,
               order: 10,
-              label: () => '安装与更新',
+              label: () => '安装 / 更新 / 卸载',
             },
             InstallPanel,
           ),
