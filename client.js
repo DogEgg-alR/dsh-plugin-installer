@@ -132,6 +132,7 @@ const TEXT = {
   progressStarting: '准备中…',
   elapsed: '已用',
   stallHint: 'pnpm 装包本身就要几十秒，进度条只反映市场报告的真实阶段，不会提前跳到 100%。',
+  queuedWaiting: '已排队：等正在运行的对话结束后自动开始，不会打断它。',
 }
 
 /**
@@ -142,7 +143,7 @@ const TEXT = {
 function failureText(failure) {
   switch (failure?.code) {
     case 'OPERATION_BUSY':
-      return '另一个更新操作正在进行，请稍后再试。'
+      return '另一个更新操作正在进行，请稍后再试（通常是上一次更新还没收尾，等几秒再点一次即可）。'
     case 'AGENTS_RUNNING':
       return '有对话正在运行，更新被推迟；等它结束后重试。'
     case 'RELEASE_TOO_FRESH':
@@ -627,13 +628,23 @@ function UpdateSection() {
   const startUpdate = async (name, force = false) => {
     setProblem(null)
     setBusyName(name)
-    try {
-      const response = await fetch(marketUrl('updates'), {
+    const post = (extra) =>
+      fetch(marketUrl('updates'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(force ? { packageName: name, force: true } : { packageName: name }),
+        body: JSON.stringify({ packageName: name, ...(force ? { force: true } : {}), ...extra }),
       })
-      const body = await readJson(response)
+    try {
+      let response = await post({})
+      let body = await readJson(response)
+      // The market refuses to swap plugin files while an Agent sits mid-turn.
+      // Its public API can also DEFER the work until those Agents go idle,
+      // which is what the person asked for, so ask for the queue instead of a
+      // dead end — the poll below follows the deferred operation the same way.
+      if (response.status === 409 && body?.failure?.code === 'AGENTS_RUNNING') {
+        response = await post({ busyPolicy: 'drain' })
+        body = await readJson(response)
+      }
       if (response.status === 202 && body.operation) {
         setOperation(body.operation)
         return
@@ -811,6 +822,9 @@ function OperationCard({ operation, retryableForce, rollingBack, onForce, onRoll
       : null,
     active ? React.createElement(PhaseStrip, { phase: progress.phase ?? null }) : null,
     active ? React.createElement('p', { style: { margin: 0, fontSize: 11, lineHeight: 1.6, color: 'var(--dsw-alias-label-secondary, #9ca3af)' } }, TEXT.stallHint) : null,
+    operation.wait === null || operation.wait === undefined
+      ? null
+      : React.createElement('p', { style: { margin: 0, ...mutedText } }, `${TEXT.queuedWaiting}（${operation.wait.activeCount} 个对话）`),
     failure === null || failure === undefined
       ? null
       : React.createElement('p', { style: { margin: 0, fontSize: 13, lineHeight: 1.6 } }, failureText(failure)),
